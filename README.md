@@ -50,6 +50,68 @@ SnapToSheet is a minimal Next.js app that extracts structured data from invoice 
    - Fallback: can accept OCR text when needed
 - OCR Fallback: Tesseract.js worker with tuned parameters (LSTM, PSM auto, 300 DPI, spacing preserved)
 
+```mermaid
+flowchart TD
+
+subgraph group_browser["Browser app"]
+  node_app_shell["App shell<br/>Next.js layout<br/>[layout.tsx]"]
+  node_page["Invoice page<br/>Next.js page<br/>[page.tsx]"]
+  node_ocr_ui["Extraction and review UI<br/>React workflow<br/>[OcrToExcel.tsx]"]
+  node_tesseract{{"Tesseract OCR<br/>browser OCR"}}
+  node_xlsx{{"xlsx<br/>workbook library"}}
+  node_workbook["Excel workbook<br/>download"]
+  node_invoice_result["Normalized invoice<br/>structured data"]
+end
+
+subgraph group_server["Next.js server"]
+  node_extract_route["Invoice extraction API<br/>Next.js route<br/>[route.ts]"]
+  node_debug_route["Extraction diagnostics API<br/>Next.js route<br/>[route.ts]"]
+  node_invoice_normalizer["Invoice normalization<br/>domain library"]
+  node_ocr_parser["OCR text parser<br/>parsing library<br/>[ocr-text-parser.ts]"]
+  node_openrouter_key{{"OPENROUTER_API_KEY<br/>server environment secret"}}
+end
+
+subgraph group_external["External services"]
+  node_openrouter{{"OpenRouter vision model<br/>remote inference"}}
+end
+
+node_app_shell -->|"wraps"| node_page
+node_page -->|"renders"| node_ocr_ui
+node_ocr_ui -->|"POST image Data URL or OCR text"| node_extract_route
+node_ocr_ui -.->|"vision fallback"| node_tesseract
+node_tesseract -->|"OCR text"| node_ocr_ui
+node_extract_route -->|"uses"| node_openrouter_key
+node_extract_route -->|"vision inference"| node_openrouter
+node_openrouter -->|"model JSON"| node_extract_route
+node_extract_route -.->|"interprets OCR-text input"| node_ocr_parser
+node_extract_route -->|"validates and normalizes"| node_invoice_normalizer
+node_ocr_parser -->|"parsed fields"| node_invoice_normalizer
+node_invoice_normalizer -->|"structured result"| node_invoice_result
+node_invoice_result -->|"preview data"| node_ocr_ui
+node_ocr_ui -->|"generates workbook"| node_xlsx
+node_xlsx -->|"local download"| node_workbook
+node_debug_route -.->|"diagnoses integration"| node_openrouter
+
+click node_app_shell "https://github.com/meetmendapara09/snap2sheet/blob/main/src/app/layout.tsx"
+click node_page "https://github.com/meetmendapara09/snap2sheet/blob/main/src/app/page.tsx"
+click node_ocr_ui "https://github.com/meetmendapara09/snap2sheet/blob/main/src/components/OcrToExcel.tsx"
+click node_extract_route "https://github.com/meetmendapara09/snap2sheet/blob/main/src/app/api/extract-invoice/route.ts"
+click node_debug_route "https://github.com/meetmendapara09/snap2sheet/blob/main/src/app/api/extract-invoice/debug/route.ts"
+click node_invoice_normalizer "https://github.com/meetmendapara09/snap2sheet/blob/main/src/lib/invoice-extractor.ts"
+click node_ocr_parser "https://github.com/meetmendapara09/snap2sheet/blob/main/src/lib/ocr-text-parser.ts"
+
+classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+class node_app_shell,node_page,node_ocr_ui,node_tesseract,node_xlsx,node_workbook,node_invoice_result toneBlue
+class node_extract_route,node_debug_route,node_invoice_normalizer,node_ocr_parser,node_openrouter_key toneAmber
+class node_openrouter toneMint
+```
+
 ---
 
 ## Project Structure
